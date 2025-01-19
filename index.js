@@ -1,11 +1,9 @@
 const express = require("express");
-
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const helmet = require("helmet");
 
 const uri =
   "mongodb+srv://manueldesande:GmtZD1KtRHPZmhDd@cluster0.b5ijp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -16,188 +14,223 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Connect the client to the server (optional starting in v4.7)
     await client.connect();
-    // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    console.log("Conectado a MongoDB");
   } catch (err) {
     console.error("Error al conectar a la base de datos:", err);
-  } finally {
-    // Ensures that the client will close when you finish/error
-    await client.close();
   }
 }
 run().catch(console.dir);
 
 const app = express();
-app.use(express.json()); // Permite recibir JSON en las solicitudes
+app.use(express.json());
+app.use(helmet());
 
 const port = process.env.PORT || 8080;
 
-// Estructura de datos (inicialmente en memoria)
-let concesionarios = [
-  {
-    id: 1,
-    nombre: "Concesionario A",
-    direccion: "Calle Falsa 123",
-    coches: [
-      { id: 1, modelo: "Renault Clio", cv: 75, precio: 8000 },
-      { id: 2, modelo: "Nissan Skyline R34", cv: 280, precio: 30000 },
-    ],
-  },
-  {
-    id: 2,
-    nombre: "Concesionario B",
-    direccion: "Avenida Siempre Viva 456",
-    coches: [
-      { id: 1, modelo: "Ford Fiesta", cv: 90, precio: 10000 },
-      { id: 2, modelo: "Toyota Corolla", cv: 130, precio: 12000 },
-    ],
-  },
-];
-
 // Lista todos los concesionarios
-app.get("/concesionarios", (req, res) => {
-  res.json(concesionarios);
+app.get("/concesionarios", async (req, res) => {
+  try {
+    const concesionarios = await client
+      .db("miBaseDeDatos")
+      .collection("concesionarios")
+      .find()
+      .toArray();
+    res.json(concesionarios);
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error al obtener concesionarios", error: err });
+  }
 });
 
 // Crea un nuevo concesionario
-app.post("/concesionarios", (req, res) => {
-  const nuevoConcesionario = {
-    id: concesionarios.length + 1,
-    nombre: req.body.nombre,
-    direccion: req.body.direccion,
-    coches: [],
-  };
-  concesionarios.push(nuevoConcesionario);
-  res.json({
-    message: "Concesionario creado",
-    concesionario: nuevoConcesionario,
-  });
+app.post("/concesionarios", async (req, res) => {
+  try {
+    const nuevoConcesionario = {
+      nombre: req.body.nombre,
+      direccion: req.body.direccion,
+      coches: [],
+    };
+    const result = await client
+      .db("miBaseDeDatos")
+      .collection("concesionarios")
+      .insertOne(nuevoConcesionario);
+    res.json(result.ops[0]);
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error al crear concesionario", error: err });
+  }
 });
 
-// Obtiene un concesionario por id
-app.get("/concesionarios/:id", (req, res) => {
-  const concesionario = concesionarios.find(
-    (c) => c.id === parseInt(req.params.id)
-  );
-  if (!concesionario)
-    return res.status(404).json({ message: "Concesionario no encontrado" });
-  res.json(concesionario);
+// Obtener un concesionario por ID
+app.get("/concesionarios/:id", async (req, res) => {
+  try {
+    const concesionario = await client
+      .db("miBaseDeDatos")
+      .collection("concesionarios")
+      .findOne({ _id: new ObjectId(req.params.id) });
+    if (!concesionario) {
+      return res.status(404).json({ message: "Concesionario no encontrado" });
+    }
+    res.json(concesionario);
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error al obtener concesionario", error: err });
+  }
 });
 
-// Actualiza un concesionario por id
-app.put("/concesionarios/:id", (req, res) => {
-  const concesionario = concesionarios.find(
-    (c) => c.id === parseInt(req.params.id)
-  );
-  if (!concesionario)
-    return res.status(404).json({ message: "Concesionario no encontrado" });
-
-  concesionario.nombre = req.body.nombre || concesionario.nombre;
-  concesionario.direccion = req.body.direccion || concesionario.direccion;
-
-  res.json({ message: "Concesionario actualizado", concesionario });
+// Actualizar un concesionario por ID
+app.put("/concesionarios/:id", async (req, res) => {
+  try {
+    const result = await client
+      .db("miBaseDeDatos")
+      .collection("concesionarios")
+      .updateOne(
+        { _id: new ObjectId(req.params.id) },
+        { $set: { nombre: req.body.nombre, direccion: req.body.direccion } }
+      );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: "Concesionario no encontrado" });
+    }
+    res.json({ message: "Concesionario actualizado" });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error al actualizar concesionario", error: err });
+  }
 });
 
-// Borra un concesionario por id
-app.delete("/concesionarios/:id", (req, res) => {
-  const index = concesionarios.findIndex(
-    (c) => c.id === parseInt(req.params.id)
-  );
-  if (index === -1)
-    return res.status(404).json({ message: "Concesionario no encontrado" });
-
-  concesionarios.splice(index, 1);
-  res.json({ message: "Concesionario eliminado" });
+// Borrar un concesionario por ID
+app.delete("/concesionarios/:id", async (req, res) => {
+  try {
+    const result = await client
+      .db("miBaseDeDatos")
+      .collection("concesionarios")
+      .deleteOne({ _id: new ObjectId(req.params.id) });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ message: "Concesionario no encontrado" });
+    }
+    res.json({ message: "Concesionario borrado" });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Error al borrar concesionario", error: err });
+  }
 });
 
-// Obtiene todos los coches de un concesionario
-app.get("/concesionarios/:id/coches", (req, res) => {
-  const concesionario = concesionarios.find(
-    (c) => c.id === parseInt(req.params.id)
-  );
-  if (!concesionario)
-    return res.status(404).json({ message: "Concesionario no encontrado" });
-  res.json(concesionario.coches);
+// Devuelve todos los coches de un concesionario por ID
+app.get("/concesionarios/:id/coches", async (req, res) => {
+  try {
+    const concesionario = await client
+      .db("miBaseDeDatos")
+      .collection("concesionarios")
+      .findOne({ _id: new ObjectId(req.params.id) });
+    if (!concesionario) {
+      return res.status(404).json({ message: "Concesionario no encontrado" });
+    }
+    res.json(concesionario.coches);
+  } catch (err) {
+    res.status(500).json({ message: "Error al obtener coches", error: err });
+  }
 });
 
-// Añade un nuevo coche a un concesionario
-app.post("/concesionarios/:id/coches", (req, res) => {
-  const concesionario = concesionarios.find(
-    (c) => c.id === parseInt(req.params.id)
-  );
-  if (!concesionario)
-    return res.status(404).json({ message: "Concesionario no encontrado" });
-
-  const nuevoCoche = {
-    id: concesionario.coches.length + 1,
-    modelo: req.body.modelo,
-    cv: req.body.cv,
-    precio: req.body.precio,
-  };
-  concesionario.coches.push(nuevoCoche);
-  res.json({ message: "Coche añadido", coche: nuevoCoche });
+// Añadir un nuevo coche a un concesionario por ID
+app.post("/concesionarios/:id/coches", async (req, res) => {
+  try {
+    const nuevoCoche = {
+      id: new ObjectId(),
+      modelo: req.body.modelo,
+      cv: req.body.cv,
+      precio: req.body.precio,
+    };
+    const result = await client
+      .db("miBaseDeDatos")
+      .collection("concesionarios")
+      .updateOne(
+        { _id: new ObjectId(req.params.id) },
+        { $push: { coches: nuevoCoche } }
+      );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: "Concesionario no encontrado" });
+    }
+    res.json(nuevoCoche);
+  } catch (err) {
+    res.status(500).json({ message: "Error al añadir coche", error: err });
+  }
 });
 
-// Obtiene un coche específico de un concesionario
-app.get("/concesionarios/:id/coches/:cocheId", (req, res) => {
-  const concesionario = concesionarios.find(
-    (c) => c.id === parseInt(req.params.id)
-  );
-  if (!concesionario)
-    return res.status(404).json({ message: "Concesionario no encontrado" });
-
-  const coche = concesionario.coches.find(
-    (c) => c.id === parseInt(req.params.cocheId)
-  );
-  if (!coche) return res.status(404).json({ message: "Coche no encontrado" });
-
-  res.json(coche);
+// Obtener un coche por ID de un concesionario por ID
+app.get("/concesionarios/:id/coches/:cocheId", async (req, res) => {
+  try {
+    const concesionario = await client
+      .db("miBaseDeDatos")
+      .collection("concesionarios")
+      .findOne({ _id: new ObjectId(req.params.id) });
+    if (!concesionario) {
+      return res.status(404).json({ message: "Concesionario no encontrado" });
+    }
+    const coche = concesionario.coches.find(
+      (c) => c.id.toString() === req.params.cocheId
+    );
+    if (!coche) {
+      return res.status(404).json({ message: "Coche no encontrado" });
+    }
+    res.json(coche);
+  } catch (err) {
+    res.status(500).json({ message: "Error al obtener coche", error: err });
+  }
 });
 
-// Actualiza un coche de un concesionario
-app.put("/concesionarios/:id/coches/:cocheId", (req, res) => {
-  const concesionario = concesionarios.find(
-    (c) => c.id === parseInt(req.params.id)
-  );
-  if (!concesionario)
-    return res.status(404).json({ message: "Concesionario no encontrado" });
-
-  const coche = concesionario.coches.find(
-    (c) => c.id === parseInt(req.params.cocheId)
-  );
-  if (!coche) return res.status(404).json({ message: "Coche no encontrado" });
-
-  coche.modelo = req.body.modelo || coche.modelo;
-  coche.cv = req.body.cv || coche.cv;
-  coche.precio = req.body.precio || coche.precio;
-
-  res.json({ message: "Coche actualizado", coche });
+// Actualizar un coche por ID de un concesionario por ID
+app.put("/concesionarios/:id/coches/:cocheId", async (req, res) => {
+  try {
+    const result = await client
+      .db("miBaseDeDatos")
+      .collection("concesionarios")
+      .updateOne(
+        {
+          _id: new ObjectId(req.params.id),
+          "coches.id": new ObjectId(req.params.cocheId),
+        },
+        {
+          $set: {
+            "coches.$.modelo": req.body.modelo,
+            "coches.$.cv": req.body.cv,
+            "coches.$.precio": req.body.precio,
+          },
+        }
+      );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: "Coche no encontrado" });
+    }
+    res.json({ message: "Coche actualizado" });
+  } catch (err) {
+    res.status(500).json({ message: "Error al actualizar coche", error: err });
+  }
 });
 
-// Borra un coche de un concesionario
-app.delete("/concesionarios/:id/coches/:cocheId", (req, res) => {
-  const concesionario = concesionarios.find(
-    (c) => c.id === parseInt(req.params.id)
-  );
-  if (!concesionario)
-    return res.status(404).json({ message: "Concesionario no encontrado" });
-
-  const index = concesionario.coches.findIndex(
-    (c) => c.id === parseInt(req.params.cocheId)
-  );
-  if (index === -1)
-    return res.status(404).json({ message: "Coche no encontrado" });
-
-  concesionario.coches.splice(index, 1);
-  res.json({ message: "Coche eliminado" });
+// Borrar un coche por ID de un concesionario por ID
+app.delete("/concesionarios/:id/coches/:cocheId", async (req, res) => {
+  try {
+    const result = await client
+      .db("miBaseDeDatos")
+      .collection("concesionarios")
+      .updateOne(
+        { _id: new ObjectId(req.params.id) },
+        { $pull: { coches: { id: new ObjectId(req.params.cocheId) } } }
+      );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: "Coche no encontrado" });
+    }
+    res.json({ message: "Coche borrado" });
+  } catch (err) {
+    res.status(500).json({ message: "Error al borrar coche", error: err });
+  }
 });
 
-// Iniciamos el servidor
 app.listen(port, () => {
   console.log(`Servidor desplegado en puerto: ${port}`);
 });
