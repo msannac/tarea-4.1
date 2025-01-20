@@ -30,22 +30,17 @@ const port = process.env.PORT || 8080;
 
 // Lista todos los concesionarios
 app.get("/concesionarios", async (req, res) => {
-  try {
-    const concesionarios = await client
-      .db("miBaseDeDatos")
-      .collection("concesionarios")
-      .find()
-      .toArray();
-    res.json(concesionarios);
-  } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Error al obtener concesionarios", error: err });
-  }
+  const concesionarios = await client
+    .db("miBaseDeDatos")
+    .collection("concesionarios")
+    .find()
+    .toArray();
+  res.json(concesionarios);
 });
 
 // Crea un nuevo concesionario
 app.post("/concesionarios", async (req, res) => {
+
   const nuevoConcesionario = {
     nombre: req.body.nombre,
     direccion: req.body.direccion,
@@ -56,7 +51,6 @@ app.post("/concesionarios", async (req, res) => {
     .collection("concesionarios")
     .insertOne(nuevoConcesionario);
   res.json(result);
-});
 
 // Obtener un concesionario por ID
 app.get("/concesionarios/:id", async (req, res) => {
