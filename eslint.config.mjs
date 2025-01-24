@@ -15,6 +15,9 @@ export default [
     rules: {
       "no-console": "off", // Permite el uso de console.log
       indent: ["error", 2], // Configura la indentación a 2 espacios
+
+      //quotes: ['error', 'single'], // Usa comillas simples para las cadenas de texto
+
       semi: ["error", "always"], // Exige el uso de punto y coma
     },
   },

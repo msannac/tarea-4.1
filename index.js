@@ -42,23 +42,17 @@ app.get("/concesionarios", async (req, res) => {
 
 // Crea un nuevo concesionario
 app.post("/concesionarios", async (req, res) => {
-  try {
-    const nuevoConcesionario = {
-      nombre: req.body.nombre,
-      direccion: req.body.direccion,
-      coches: [],
-    };
-    const result = await client
-      .db("miBaseDeDatos")
-      .collection("concesionarios")
-      .insertOne(nuevoConcesionario);
-    res.json(result);
-  } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Error al crear concesionario", error: err });
-  }
-});
+
+  const nuevoConcesionario = {
+    nombre: req.body.nombre,
+    direccion: req.body.direccion,
+    coches: [],
+  };
+  const result = await client
+    .db("miBaseDeDatos")
+    .collection("concesionarios")
+    .insertOne(nuevoConcesionario);
+  res.json(result);
 
 // Obtener un concesionario por ID
 app.get("/concesionarios/:id", async (req, res) => {
