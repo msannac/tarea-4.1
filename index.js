@@ -42,7 +42,6 @@ app.get("/concesionarios", async (req, res) => {
 
 // Crea un nuevo concesionario
 app.post("/concesionarios", async (req, res) => {
-
   const nuevoConcesionario = {
     nombre: req.body.nombre,
     direccion: req.body.direccion,
@@ -53,6 +52,7 @@ app.post("/concesionarios", async (req, res) => {
     .collection("concesionarios")
     .insertOne(nuevoConcesionario);
   res.json(result);
+}); // <-- Aquí faltaba el paréntesis de cierre y la llave de cierre
 
 // Obtener un concesionario por ID
 app.get("/concesionarios/:id", async (req, res) => {
