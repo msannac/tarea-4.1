@@ -1,7 +1,8 @@
 const express = require("express");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const helmet = require("helmet");
-
+const swaggerUi = require("swagger-ui-express");
+const swaggerDocument = require("./swagger.json");
 const uri =
   "mongodb+srv://manueldesande:GmtZD1KtRHPZmhDd@cluster0.b5ijp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const client = new MongoClient(uri, {
@@ -25,6 +26,7 @@ run().catch(console.dir);
 const app = express();
 app.use(express.json());
 app.use(helmet());
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 const port = process.env.PORT || 8080;
 
